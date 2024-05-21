@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+</head>
+<body>
+    <h1>Profile</h1>
+    <button id="register-passkey-btn">Register Passkey</button>
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+    <script>
+        const registerPassBtn = document.getElementById("register-passkey-btn");
+
+        registerPassBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            const url = new URL(window.location);
+            const userId = url.searchParams.get('userId');
+            console.log(`The userId is ${userId}`);
+
+            try {
+                const response = await fetch('/register-challenge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ userId })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch registration challenge');
+                }
+
+                const challengeResult = await response.json();
+                const { options } = challengeResult;
+                console.log('The options are', options);
+
+                // Ensure options are properly formatted
+                if (!options || typeof options !== 'object') {
+                    throw new Error('Invalid options received from server');
+                }
+
+                let authResult = null;
+                try {
+                    authResult = await SimpleWebAuthnBrowser.startRegistration(options);
+                    console.log('authResult', authResult);
+                } catch (error) {
+                    console.error('Error during startRegistration:', error);
+                    alert(`Registration failed: ${error.message}`);
+                    return;
+                }
+
+                const verifyResponse = await fetch('/register-verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ userId, cred: authResult })
+                });
+
+                if (!verifyResponse.ok) {
+                    throw new Error('Failed to verify registration');
+                }
+
+                console.log('Registration verified successfully');
+                alert('Registration successful!');
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`An error occurred: ${error.message}`);
+            }
+        });
+    </script>
+</body>
+</html>
